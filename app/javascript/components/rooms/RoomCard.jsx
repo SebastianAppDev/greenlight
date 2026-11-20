@@ -18,8 +18,7 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Stack } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-import { DocumentDuplicateIcon, LinkIcon, PhoneIcon } from '@heroicons/react/24/outline';
-import { toast } from 'react-toastify';
+import { ShareIcon, LinkIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/auth/AuthProvider';
 import { localizeDateTimeString } from '../../helpers/DateTimeHelper';
@@ -27,6 +26,9 @@ import Spinner from '../shared_components/utilities/Spinner';
 import useStartMeeting from '../../hooks/mutations/rooms/useStartMeeting';
 import MeetingBadges from './MeetingBadges';
 import UserBoardIcon from './UserBoardIcon';
+import Modal from '../shared_components/modals/Modal';
+import ShareRoomForm from './room/forms/ShareRoomForm';
+import useRoomSettings from '../../hooks/queries/rooms/useRoomSettings';
 
 export default function RoomCard({ room }) {
   const { t } = useTranslation();
@@ -35,11 +37,7 @@ export default function RoomCard({ room }) {
   const startMeeting = useStartMeeting(room.friendly_id);
   const currentUser = useAuth();
   const localizedTime = localizeDateTimeString(room?.last_session, currentUser?.language);
-
-  function copyInvite(friendlyId) {
-    navigator.clipboard.writeText(`${window.location}/${friendlyId}/join`);
-    toast.success(t('toast.success.room.copied_meeting_url'));
-  }
+  const roomSettings = useRoomSettings(room.friendly_id);
 
   function copyVoiceBridge(voiceBridge, voiceBridgePhoneNumber) {
     navigator.clipboard.writeText(`Tel.: ${voiceBridgePhoneNumber} Pin: ${voiceBridge}`);
@@ -62,7 +60,7 @@ export default function RoomCard({ room }) {
         <Stack className="my-4">
           <Card.Title className="mb-0"> {room.name} </Card.Title>
           {room.shared_owner && (
-            <span className="text-muted">{ t('room.shared_by') } {' '} <strong>{ room.shared_owner }</strong></span>
+            <span className="text-muted">{t('room.shared_by')} {' '} <strong>{room.shared_owner}</strong></span>
           )}
           {room.last_session ? (
             <span className="text-muted"> {t('room.last_session', { localizedTime })} </span>
@@ -72,20 +70,19 @@ export default function RoomCard({ room }) {
         </Stack>
       </Card.Body>
       <Card.Footer className="bg-white">
-        <Button
-          variant="icon"
-          onClick={() => copyInvite(room.friendly_id)}
-        >
-          <DocumentDuplicateIcon className="hi-m mt-1 text-muted" />
-        </Button>
-        {typeof room.voice_bridge_phone_number !== 'undefined' && (
-        <Button
-          variant="icon"
-          onClick={() => copyVoiceBridge(room.voice_bridge, room.voice_bridge_phone_number)}
-        >
-          <PhoneIcon className="hi-m mt-1 text-muted" />
-        </Button>
-        )}
+        <Modal
+          size="lg"
+          modalButton={(
+            <Button
+              variant="icon"
+            >
+              <ShareIcon className="hi-m mt-1 text-muted" />
+            </Button>
+          )}
+          title={t('room.meeting.share_meeting')}
+          body={<ShareRoomForm room={room} friendly_id={room.friendly_id} roomSettings={roomSettings} />}
+        />
+
         <Button variant="brand-outline" className="btn btn-md float-end" onClick={startMeeting.mutate} disabled={startMeeting.isLoading}>
           {startMeeting.isLoading && <Spinner className="me-2" />}
           {room.online ? (
@@ -98,12 +95,6 @@ export default function RoomCard({ room }) {
     </Card>
   );
 }
-
-RoomCard.defaulProps = {
-  room: PropTypes.shape({
-    last_session: '',
-  }),
-};
 
 RoomCard.propTypes = {
   room: PropTypes.shape({
